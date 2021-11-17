@@ -38,18 +38,27 @@
 #include <rn2xx3.h>
 #include <SoftwareSerial.h>
 
-#define LORARST 4
+#define LORARST 7
+#define GASPIN A0
+#define INTPIN 2
 
-SoftwareSerial mySerial(3, 2); // RX, TX
+SoftwareSerial mySerial(6, 5); // RX, TX
 
 //create an instance of the rn2xx3 library,
 //giving the software serial as port to use
 rn2xx3 myLora(mySerial);
 
+void gas_handler(void){
+  for (int i=0;i<10;i++){
+    delay(100);
+    Serial.println("ARRETEZ TOUT");
+  }
+}
+
 // the setup routine runs once when you press reset:
 void setup()
 {
-
+  attachInterrupt(digitalPinToInterrupt(INTPIN), gas_handler, RISING);
   // Open serial communications and wait for port to open:
   Serial.begin(57600); //serial port to computer
   mySerial.begin(9600); //serial port to radio
@@ -102,9 +111,9 @@ void initialize_radio()
    * ABP: initABP(String addr, String AppSKey, String NwkSKey);
    * Paste the example code from the TTN console here:
    */
-  const char *devAddr = "260BEC3B";
-  const char *nwkSKey = "589E1DAFBDA40A27A6A7C6B043B12C52";
-  const char *appSKey = "14A1E65E330CCB75A0F471E5B076BB84";
+  const char *devAddr = "260B684E";
+  const char *nwkSKey = "17AE9CFCE61E941FB686DB33B380B8B0";
+  const char *appSKey = "4EBFBA138714B6A18A6B597395CAFE47";
 
   join_result = myLora.initABP(devAddr, appSKey, nwkSKey);
 
@@ -125,24 +134,28 @@ void initialize_radio()
     join_result = myLora.init();
   }
   Serial.println("Successfully joined TTN");
-
 }
 
 // the loop routine runs over and over again forever:
 void loop()
 {
     Serial.println("TXing");
-    myLora.tx("!"); //one byte, blocking function
-
-    delay(200);
+   // myLora.tx(String(get_gas_value())); //one byte, blocking function
+    byte my_value[2];
+    uint16_t gval = get_gas_value();
+    
+    my_value[1]=highByte(gval);
+    Serial.println(my_value[1], HEX);
+    my_value[0]=lowByte(gval);
+    Serial.println(my_value[0], HEX);
+    myLora.txBytes(my_value, 2);
+    Serial.println(gval);
+    delay(1000);
 }
 
-void led_on()
-{
-  digitalWrite(13, 1);
-}
-
-void led_off()
-{
-  digitalWrite(13, 0);
+uint16_t get_gas_value(void){
+  float gvalue=0;
+  gvalue=analogRead(GASPIN);
+  
+  return (gvalue/1024.0*5.0)*1000;
 }
