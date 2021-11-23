@@ -49,25 +49,25 @@ SoftwareSerial mySerial(6, 5); // RX, TX
 //create an instance of the rn2xx3 library,
 //giving the software serial as port to use
 rn2xx3 myLora(mySerial);
+bool danger_detected;
+
 
 void gas_handler(void){
-  for (int i=0;i<10;i++){
-    delay(100);
-    Serial.println("ARRETEZ TOUT");
-  }
+    danger_detected=true;
 }
 
 // the setup routine runs once when you press reset:
 void setup()
 {
   
-  attachInterrupt(digitalPinToInterrupt(INTPIN), gas_handler, RISING);
   // Open serial communications and wait for port to open:
   Serial.begin(57600); //serial port to computer
   mySerial.begin(9600); //serial port to radio
   Serial.println("Startup");
 
   initialize_radio();
+ 
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 
   //transmit a startup message
   myLora.tx("TTN Mapper on TTN Enschede node");
@@ -142,11 +142,19 @@ void initialize_radio()
 // the loop routine runs over and over again forever:
 void loop()
 {
+  uint16_t gval = get_gas_value();
+
+  Serial.print("value :");Serial.println(gval);
+  Serial.print("Danger:");Serial.println(danger_detected);
+  
+  if(danger_detected){ //On transmet de la valeur uniquement pendant un danger
+ 
+    detachInterrupt(digitalPinToInterrupt(INTPIN)); //On enleve l'interruption pour pas qu'elle soit activé tout le temps. 
+    Serial.println("J'ai bien dormi");
+    delay(1000);
     Serial.println("TXing");
    // myLora.tx(String(get_gas_value())); //one byte, blocking function
-    byte my_value[2];
-    uint16_t gval = get_gas_value();
-    
+    byte my_value[2];   
     my_value[1]=highByte(gval);
     Serial.println(my_value[1], HEX);
     my_value[0]=lowByte(gval);
@@ -154,21 +162,25 @@ void loop()
     myLora.txBytes(my_value, 2);
     Serial.println(gval);
     delay(1000);
-
-    //Ici, va en sleepmode si le on a une valeur de gaz inférieur a 500
-    cli();
-    if (gval<500)
-    {
-      Serial.println("Going to sleep");
-      sleep_enable();
-      sleep_bod_disable();
-      sei();
-      sleep_cpu();
-      sleep_disable();
-    }
-    sei();
-
+  }
+  
+  if(gval<650){ //Une fois le danger écarté, on peut sleep
+    Serial.println("On veut dormir");
+    danger_detected=false;
+    delay(1000);
+    go_sleep();
+ }
+  
   delay(1000);
+}
+
+void go_sleep(){
+  
+  attachInterrupt(digitalPinToInterrupt(INTPIN), gas_handler, RISING);  
+  Serial.println("Going to sleep");
+  delay(1000);
+
+  sleep_mode();
 }
 
 uint16_t get_gas_value(void){
