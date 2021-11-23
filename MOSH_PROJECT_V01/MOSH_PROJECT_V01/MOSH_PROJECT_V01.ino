@@ -54,14 +54,33 @@ bool danger_detected;
 
 void gas_handler(void){
     danger_detected=true;
+    power_adc_enable();
 }
 
+void disable_module(void){
+
+  power_adc_disable();
+   Serial.println("ADC Succesfully disabled");
+  power_spi_disable();
+   Serial.println("SPI Succesfully disabled");
+  power_timer1_disable();
+  Serial.println("Timer1 disabled");
+  power_timer2_disable();
+  Serial.println("Timer2 disabled");
+  power_twi_disable();
+  Serial.println("TWI disabled");
+  
+}
 // the setup routine runs once when you press reset:
 void setup()
 {
-  
-  // Open serial communications and wait for port to open:
   Serial.begin(57600); //serial port to computer
+  Serial.println("Attention on va tout eteindre");
+  delay(1000);
+  disable_module();
+  Serial.println("Modules DISABLED");
+  // Open serial communications and wait for port to open:
+  
   mySerial.begin(9600); //serial port to radio
   Serial.println("Startup");
 
@@ -148,7 +167,9 @@ void loop()
   Serial.print("Danger:");Serial.println(danger_detected);
   
   if(danger_detected){ //On transmet de la valeur uniquement pendant un danger
- 
+    power_adc_enable();
+    power_timer0_enable();
+    
     detachInterrupt(digitalPinToInterrupt(INTPIN)); //On enleve l'interruption pour pas qu'elle soit activé tout le temps. 
     Serial.println("J'ai bien dormi");
     delay(1000);
@@ -178,8 +199,8 @@ void go_sleep(){
   
   attachInterrupt(digitalPinToInterrupt(INTPIN), gas_handler, RISING);  
   Serial.println("Going to sleep");
+  power_adc_disable();
   delay(1000);
-
   sleep_mode();
 }
 
