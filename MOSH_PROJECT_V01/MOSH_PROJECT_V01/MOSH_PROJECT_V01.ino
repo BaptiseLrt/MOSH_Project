@@ -37,6 +37,8 @@
  */
 #include <rn2xx3.h>
 #include <SoftwareSerial.h>
+#include <avr/power.h>
+#include <avr/sleep.h>
 
 #define LORARST 7
 #define GASPIN A0
@@ -58,6 +60,7 @@ void gas_handler(void){
 // the setup routine runs once when you press reset:
 void setup()
 {
+  
   attachInterrupt(digitalPinToInterrupt(INTPIN), gas_handler, RISING);
   // Open serial communications and wait for port to open:
   Serial.begin(57600); //serial port to computer
@@ -111,9 +114,9 @@ void initialize_radio()
    * ABP: initABP(String addr, String AppSKey, String NwkSKey);
    * Paste the example code from the TTN console here:
    */
-  const char *devAddr = "260B684E";
-  const char *nwkSKey = "17AE9CFCE61E941FB686DB33B380B8B0";
-  const char *appSKey = "4EBFBA138714B6A18A6B597395CAFE47";
+  const char *devAddr = "260B3B60";
+  const char *nwkSKey = "10E106FE42AFE00C592F6776A6B1767E";
+  const char *appSKey = "CDA82056ED3A976F7FAB18E7B9F658D4";
 
   join_result = myLora.initABP(devAddr, appSKey, nwkSKey);
 
@@ -151,6 +154,21 @@ void loop()
     myLora.txBytes(my_value, 2);
     Serial.println(gval);
     delay(1000);
+
+    //Ici, va en sleepmode si le on a une valeur de gaz inférieur a 500
+    cli();
+    if (gval<500)
+    {
+      Serial.println("Going to sleep");
+      sleep_enable();
+      sleep_bod_disable();
+      sei();
+      sleep_cpu();
+      sleep_disable();
+    }
+    sei();
+
+  delay(1000);
 }
 
 uint16_t get_gas_value(void){
